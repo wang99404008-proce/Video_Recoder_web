@@ -7,7 +7,7 @@ import signal
 st.set_page_config(page_title="全能高畫質影片側錄器", layout="centered")
 
 st.title("🎬 全能高畫質影片側錄器")
-st.subheader("免開全螢幕 · 雲端極速無損擷取 (防 429 反爬優化版)")
+st.subheader("免開全螢幕 · 雲端極速無損擷取 (Cookies 驗證版)")
 
 if "recording_pid" not in st.session_state:
     st.session_state.recording_pid = None
@@ -16,8 +16,9 @@ if "recording_pid" not in st.session_state:
 YTDLP_PATH = "yt-dlp"
 FFMPEG_PATH = "ffmpeg"
 
-# 模擬行動端客戶端參數，防止雲端機房 IP 被 YouTube 阻擋 (HTTP 429)
-YTDLP_EXTRACTOR_ARGS = '--extractor-args "youtube:player_client=android,ios,web"'
+# 自動偵測是否存在 cookies.txt
+COOKIES_ARG = "--cookies cookies.txt" if os.path.exists("cookies.txt") else ""
+YTDLP_EXTRACTOR_ARGS = f'{COOKIES_ARG} --extractor-args "youtube:player_client=android,ios,web"'
 
 # 1. 影片狀態選擇
 mode = st.radio(
@@ -188,11 +189,9 @@ elif "2." in mode and video_url:
             except ProcessLookupError:
                 pass
             st.session_state.recording_pid = None
-            st.success("側錄已停止！")
             st.rerun()
 
     if os.path.exists(output_filename) and st.session_state.recording_pid is None:
-        st.markdown("---")
         with open(output_filename, "rb") as file:
             st.download_button(
                 label="💾 下載直播側錄檔",
