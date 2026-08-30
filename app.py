@@ -1,5 +1,7 @@
 import os
+import re
 import streamlit as st
+import streamlit.components.v1 as components
 import subprocess
 import json
 import signal
@@ -7,7 +9,7 @@ import signal
 st.set_page_config(page_title="全能高畫質影片側錄器", layout="centered")
 
 st.title("🎬 全能高畫質影片側錄器")
-st.subheader("免開全螢幕 · 雲端極速無損擷取 (Cookies 驗證版)")
+st.subheader("免開全螢幕 · 雲端極速無損擷取 (全相容修復版)")
 
 if "recording_pid" not in st.session_state:
     st.session_state.recording_pid = None
@@ -16,20 +18,33 @@ if "recording_pid" not in st.session_state:
 YTDLP_PATH = "yt-dlp"
 FFMPEG_PATH = "ffmpeg"
 
-# 自動偵測是否存在 cookies.txt
+# 自動偵測是否存在 cookies.txt 避免 429 阻擋
 COOKIES_ARG = "--cookies cookies.txt" if os.path.exists("cookies.txt") else ""
 YTDLP_EXTRACTOR_ARGS = f'{COOKIES_ARG} --extractor-args "youtube:player_client=android,ios,web"'
 
-# 1. 影片狀態選擇
-mode = st.radio(
-    "請選擇影片狀態：",
-    ["1. 直播結束 (精準範圍裁切)", "2. 即將/正在直播 (放著讓它錄)"],
-    horizontal=True,
-    disabled=(st.session_state.recording_pid is not None)
-)
+# 輔助函式：自動提取 YouTube 影片 ID
+def get_youtube_id(url):
+    pattern = r'(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|live\/|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})'
+    match = re.search(pattern, url)
+    return match.group(1) if match else None
 
-video_url = st.text_input("請輸入影片或直播網址 (支援 YouTube/Twitch 等):", "")
+# 輔助函式：安全渲染影片播放器（解決直播存檔無法預覽問題）
+def render_video_player(url):
+    yt_id = get_youtube_id(url)
+    if yt_id:
+        embed_html = f"""
+        <iframe width="100%" height="420" 
+                src="https://www.youtube.com/embed/{yt_id}" 
+                frameborder="0" 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                allowfullscreen>
+        </iframe>
+        """
+        components.html(embed_html, height=430)
+    else:
+        st.video(url)
 
+# 輔助函式：將字串 "HH:MM:SS" 轉成總秒數
 def str_to_seconds(time_str):
     try:
         time_str = time_str.strip()
@@ -44,11 +59,22 @@ def str_to_seconds(time_str):
         return None
     return None
 
+# 輔助函式：將總秒數轉回字串格式 (HH:MM:SS)
 def secs_to_str(secs):
     secs = max(0, secs)
     h, m = divmod(secs, 3600)
     m, s = divmod(m, 60)
     return f"{h:02d}:{m:02d}:{s:02d}"
+
+# 1. 影片狀態選擇
+mode = st.radio(
+    "請選擇影片狀態：",
+    ["1. 直播結束 (精準範圍裁切)", "2. 即將/正在直播 (放著讓它錄)"],
+    horizontal=True,
+    disabled=(st.session_state.recording_pid is not None)
+)
+
+video_url = st.text_input("請輸入影片或直播網址 (支援 YouTube/Twitch 等):", "")
 
 # =====================================================================
 # 模式 1：直播結束 (精準範圍裁切)
@@ -67,7 +93,7 @@ if "1." in mode and video_url:
             title = video_info.get('title', '未命名影片')
             
             st.success(f"🎬 成功載入影片：{title}")
-            st.video(video_url)
+            render_video_player(video_url)
             
             st.markdown("### ⏱️ 設定側錄範圍")
             st.caption("請直接在欄位中輸入時間（格式為 時:分:秒 或 分:秒）")
@@ -163,7 +189,7 @@ if "1." in mode and video_url:
 # =====================================================================
 elif "2." in mode and video_url:
     st.markdown("### 🔴 直播錄製設定")
-    st.video(video_url)
+    render_video_player(video_url)
     
     record_minutes = st.number_input("預計錄製時間 (分鐘)，輸入 0 代表手動停止:", min_value=0, value=5)
     output_filename = "live_output.mp4"
@@ -189,9 +215,11 @@ elif "2." in mode and video_url:
             except ProcessLookupError:
                 pass
             st.session_state.recording_pid = None
+            st.success("側錄已停止！")
             st.rerun()
 
     if os.path.exists(output_filename) and st.session_state.recording_pid is None:
+        st.markdown("---")
         with open(output_filename, "rb") as file:
             st.download_button(
                 label="💾 下載直播側錄檔",
