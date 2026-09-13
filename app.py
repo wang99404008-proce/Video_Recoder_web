@@ -9,7 +9,7 @@ import signal
 st.set_page_config(page_title="全能高畫質影片側錄器", layout="centered")
 
 st.title("🎬 全能高畫質影片側錄器")
-st.subheader("免開全螢幕 · 雲端極速無損擷取 (全相容修復版)")
+st.subheader("免開全螢幕 · 雲端極速無損擷取 (修復 Cookies 支援版)")
 
 if "recording_pid" not in st.session_state:
     st.session_state.recording_pid = None
@@ -18,20 +18,17 @@ if "recording_pid" not in st.session_state:
 YTDLP_PATH = "yt-dlp"
 FFMPEG_PATH = "ffmpeg"
 
-# 自動偵測是否存在 cookies.txt
+# 檢查與掛載 cookies.txt
 cookie_file = "cookies.txt"
 if os.path.exists(cookie_file):
     COOKIES_ARG = f'--cookies "{cookie_file}"'
     st.sidebar.success("✅ Cookies 憑證已掛載")
 else:
     COOKIES_ARG = ""
-    st.sidebar.error("❌ 未檢測到 cookies.txt，請確認檔案已放置於專案根目錄")
+    st.sidebar.error("❌ 未檢測到 cookies.txt，請確認檔案放置於專案根目錄")
 
-# 移除 ios，改用完整支援 Cookies 的 web,mweb
+# 使用完全支援 Cookies 的 web,mweb 客戶端，移除不支援的 ios
 YTDLP_EXTRACTOR_ARGS = f'{COOKIES_ARG} --extractor-args "youtube:player_client=web,mweb" --no-check-certificates'
-
-# 改用 ios,mweb 客戶端組合，避開 android API 的 403 限制
-YTDLP_EXTRACTOR_ARGS = f'{COOKIES_ARG} --extractor-args "youtube:player_client=ios,mweb" --no-check-certificates'
 
 # 輔助函式：自動提取 YouTube 影片 ID
 def get_youtube_id(url):
@@ -39,7 +36,7 @@ def get_youtube_id(url):
     match = re.search(pattern, url)
     return match.group(1) if match else None
 
-# 輔助函式：安全渲染影片播放器（解決直播存檔無法預覽問題）
+# 輔助函式：安全渲染影片播放器
 def render_video_player(url):
     yt_id = get_youtube_id(url)
     if yt_id:
@@ -93,7 +90,8 @@ video_url = st.text_input("請輸入影片或直播網址 (支援 YouTube/Twitch
 if "1." in mode and video_url:
     with st.spinner("正在獲取影片資訊..."):
         try:
-            cmd = f'{YTDLP_PATH} {YTDLP_EXTRACTOR_ARGS} "{video_url}" --dump-json --skip-download --allow-unplayable-formats'
+            # 移除 --allow-unplayable-formats 以免觸發 API 403
+            cmd = f'{YTDLP_PATH} {YTDLP_EXTRACTOR_ARGS} "{video_url}" --dump-json --skip-download'
             result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
             
             if result.returncode != 0:
