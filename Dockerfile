@@ -15,8 +15,8 @@ ENV PATH="$DENO_INSTALL/bin:$PATH"
 
 WORKDIR /app
 
-# 安裝 Python 套件
-RUN pip install --no-cache-dir streamlit yt-dlp
+# 確保每次建置都拉取官方最新版 yt-dlp
+RUN pip install --no-cache-dir -U streamlit yt-dlp
 
 COPY . .
 
