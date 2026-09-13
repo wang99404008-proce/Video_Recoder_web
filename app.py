@@ -25,7 +25,10 @@ if os.path.exists(cookie_file):
     st.sidebar.success("✅ Cookies 憑證已掛載")
 else:
     COOKIES_ARG = ""
-    st.sidebar.warning("⚠️ 未檢測到 cookies.txt，雲端 IP 極易觸發 429/403 阻擋")
+    st.sidebar.error("❌ 未檢測到 cookies.txt，請確認檔案已放置於專案根目錄")
+
+# 移除 ios，改用完整支援 Cookies 的 web,mweb
+YTDLP_EXTRACTOR_ARGS = f'{COOKIES_ARG} --extractor-args "youtube:player_client=web,mweb" --no-check-certificates'
 
 # 改用 ios,mweb 客戶端組合，避開 android API 的 403 限制
 YTDLP_EXTRACTOR_ARGS = f'{COOKIES_ARG} --extractor-args "youtube:player_client=ios,mweb" --no-check-certificates'
