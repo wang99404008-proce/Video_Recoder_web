@@ -18,9 +18,17 @@ if "recording_pid" not in st.session_state:
 YTDLP_PATH = "yt-dlp"
 FFMPEG_PATH = "ffmpeg"
 
-# 自動偵測是否存在 cookies.txt 避免 429 阻擋
-COOKIES_ARG = "--cookies cookies.txt" if os.path.exists("cookies.txt") else ""
-YTDLP_EXTRACTOR_ARGS = f'{COOKIES_ARG} --extractor-args "youtube:player_client=android,ios,web"'
+# 自動偵測是否存在 cookies.txt
+cookie_file = "cookies.txt"
+if os.path.exists(cookie_file):
+    COOKIES_ARG = f'--cookies "{cookie_file}"'
+    st.sidebar.success("✅ Cookies 憑證已掛載")
+else:
+    COOKIES_ARG = ""
+    st.sidebar.warning("⚠️ 未檢測到 cookies.txt，雲端 IP 極易觸發 429/403 阻擋")
+
+# 改用 ios,mweb 客戶端組合，避開 android API 的 403 限制
+YTDLP_EXTRACTOR_ARGS = f'{COOKIES_ARG} --extractor-args "youtube:player_client=ios,mweb" --no-check-certificates'
 
 # 輔助函式：自動提取 YouTube 影片 ID
 def get_youtube_id(url):
